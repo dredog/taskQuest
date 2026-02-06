@@ -217,7 +217,7 @@ function App(){
   const K=(k,t)=>`${k}-${t}-${dy}`;
   const isDn=(k,t)=>!!comp[K(k,t)];
   const isOk=(k,t)=>!!appr[K(k,t)];
-  const isW=(k,t)=>isDn(k,t)&&!isOk(k,t);
+  const isW=(k,t)=>pend.some(p=>p.k===k&&p.t===t&&p.d===dy);
   const isSec=(k,cat)=>!!secSub[`${k}-${cat}-${dy}`];
   const okC=k=>tt.filter(t=>isOk(k,t.id)).length;
 
