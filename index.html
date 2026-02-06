@@ -86,10 +86,11 @@ const DT=[
 {id:"cleanup",label:"Clean up after dinner",pts:2,cat:"daily",icon:"🧹",rt:false,days:[...AD]},
 {id:"reading",label:"Read for 20 minutes",pts:2,cat:"daily",icon:"📖",rt:false,days:[...AD]},
 {id:"exercises",label:"Exercises",pts:2,cat:"daily",icon:"💪",rt:false,days:[...AD]},
-{id:"fold",label:"Fold laundry",pts:5,cat:"weekly",icon:"👔",rt:false,days:[],sched:{}},
-{id:"wash",label:"Wash/dry clothes",pts:5,cat:"weekly",icon:"🧺",rt:false,days:[],sched:{}},
-{id:"bathroom",label:"Clean bathroom",pts:8,cat:"weekly",icon:"🚿",rt:false,days:[],sched:{}},
-{id:"room",label:"Clean room",pts:5,cat:"weekly",icon:"🛏️",rt:false,days:[],sched:{}},
+{id:"fold",label:"Fold laundry",pts:10,cat:"weekly",icon:"👔",rt:false,days:[...AD]},
+{id:"wash",label:"Wash/dry clothes",pts:5,cat:"weekly",icon:"🧺",rt:false,days:[...AD]},
+{id:"bathroom",label:"Clean bathroom",pts:8,cat:"weekly",icon:"🚿",rt:false,days:[...AD]},
+{id:"room",label:"Clean room",pts:5,cat:"weekly",icon:"🛏️",rt:false,days:[...AD]},
+{id:"dishwasher",label:"Empty the dishwasher",pts:4,cat:"weekly",icon:"🍽️",rt:false,days:[...AD]},
 {id:"bb_game",label:"Baseball game",pts:3,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:70},
 {id:"bb_prac",label:"Baseball practice",pts:2,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:35},
 {id:"sc_game",label:"Soccer game",pts:3,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:50},
@@ -188,7 +189,17 @@ function App(){
     const loaded=S0?.tasks||DT;
     // Migrate: merge readyMins from defaults into loaded tasks
     const defaults={};DT.forEach(d=>{if(d.readyMins)defaults[d.id]=d.readyMins});
-    return loaded.map(t=>t.readyMins?t:defaults[t.id]?{...t,readyMins:defaults[t.id]}:t);
+    let migrated=loaded.map(t=>{
+      let u=t.readyMins?t:defaults[t.id]?{...t,readyMins:defaults[t.id]}:t;
+      // Migrate weekly tasks from sched-based to recurring days
+      if(u.cat==="weekly"&&u.sched&&(!u.days||!u.days.length)){u={...u,days:[...AD]};delete u.sched}
+      // Update fold laundry points
+      if(u.id==="fold"&&u.pts===5)u={...u,pts:10};
+      return u;
+    });
+    // Add dishwasher if not present
+    if(!migrated.find(t=>t.id==="dishwasher")){migrated.push({id:"dishwasher",label:"Empty the dishwasher",pts:4,cat:"weekly",icon:"🍽️",rt:false,days:[...AD]})}
+    return migrated;
   });
   const[rews,setRews]=useState(S0?.rews||DR);
   const[pens]=useState(S0?.pens||DP);
@@ -225,7 +236,7 @@ function App(){
 
   const togCheck=tid=>{
     const task=tasks.find(t=>t.id===tid);if(!task)return;
-    if(isSec(aK,task.cat)||isOk(aK,tid))return;
+    if(isOk(aK,tid)||isW(aK,tid))return;
     const k=K(aK,tid);setComp(p=>{const n={...p};n[k]?delete n[k]:n[k]=true;return n});
   };
 
@@ -234,17 +245,14 @@ function App(){
     const ch=st.filter(t=>isDn(aK,t.id)&&!isOk(aK,t.id)&&!isW(aK,t.id));
     if(!ch.length)return;
     setPend(p=>[...p,...ch.map(t=>({k:aK,t:t.id,d:dy,ts:Date.now(),cat}))]);
-    setSecSub(p=>({...p,[`${aK}-${cat}-${dy}`]:true}));
   };
 
   const doApprAll=(kid,tids)=>{
-    let tot=0;const na={};const cats=new Set();
+    let tot=0;const na={};
     tids.forEach(tid=>{const k=`${kid}-${tid}-${dy}`,task=tasks.find(t=>t.id===tid);
-      if(task){na[k]=true;cats.add(task.cat);let p=tPts(task,kid);if(task.id==="reading")p*=sMul(rStr({...appr,...na},kid));tot+=p}});
-    const newAppr={...appr,...na};setAppr(newAppr);setPts(p=>({...p,[kid]:(p[kid]||0)+tot}));
+      if(task){na[k]=true;let p=tPts(task,kid);if(task.id==="reading")p*=sMul(rStr({...appr,...na},kid));tot+=p}});
+    setAppr(p=>({...p,...na}));setPts(p=>({...p,[kid]:(p[kid]||0)+tot}));
     setPend(p=>p.filter(x=>!(x.k===kid&&tids.includes(x.t)&&x.d===dy)));
-    // Clear secSub for approved categories so kid can check/submit remaining tasks
-    setSecSub(p=>{const n={...p};cats.forEach(cat=>{const catTasks=tt.filter(t=>t.cat===cat);const allDone=catTasks.every(t=>!!newAppr[`${kid}-${t.id}-${dy}`]);if(!allDone)delete n[`${kid}-${cat}-${dy}`]});return n});
     if(tot>0)boom(tot);
   };
   const doRej=(kid,tid)=>{
@@ -286,7 +294,7 @@ function App(){
     if(f==='at'&&v&&t.readyMins){const[hh,mm]=v.split(':').map(Number);const total=hh*60+mm-t.readyMins;const rh=Math.floor(((total%1440)+1440)%1440/60);const rm=((total%1440)+1440)%1440%60;s[date].rb=String(rh).padStart(2,'0')+':'+String(rm).padStart(2,'0');}
     return{...t,sched:s}}))};
 
-  const addTask=()=>{if(!nN.trim()||!nP)return;const isDate=nC==="activity"||nC==="weekly";setTasks(p=>[...p,{id:"t"+Date.now(),label:nN.trim(),pts:parseInt(nP),cat:nC,icon:"✅",rt:false,days:[],...(isDate?{sched:{}}:{})}]);sNN("");sNP("")};
+  const addTask=()=>{if(!nN.trim()||!nP)return;const isAct=nC==="activity";const isWeekly=nC==="weekly";setTasks(p=>[...p,{id:"t"+Date.now(),label:nN.trim(),pts:parseInt(nP),cat:nC,icon:"✅",rt:false,days:isWeekly?[...AD]:[],...(isAct?{sched:{}}:{})}]);sNN("");sNP("")};
   const addRew=()=>{if(!nN.trim()||!nP)return;setRews(p=>[...p,{id:"r"+Date.now(),label:nN.trim(),cost:parseInt(nP),icon:"🎁"}]);sNN("");sNP("")};
   const sortRew=[...rews].sort((a,b)=>a.cost-b.cost);
 
@@ -318,7 +326,7 @@ function App(){
 
   function KidSec({cat,label,list}){
     const pk=gp(kids.find(x=>x.id===aK)?.av);
-    const sub=isSec(aK,cat),allOk=list.length>0&&list.every(t=>isOk(aK,t.id));
+    const allOk=list.length>0&&list.every(t=>isOk(aK,t.id));
     const chkd=list.filter(t=>isDn(aK,t.id)&&!isOk(aK,t.id)&&!isW(aK,t.id)).length;
     const hasW=list.some(t=>isW(aK,t.id));
     const streak=rStr(appr,aK),mult=sMul(streak);
@@ -331,7 +339,7 @@ function App(){
         let tp=tPts(t,aK);const isR=t.id==="reading"&&mult>1;if(isR)tp*=mult;
         const atm=t.sched?.[dy];
         const hasTime=atm&&typeof atm==='object'&&atm.at;
-        return h('div',{key:t.id,style:Z.tr(c,w,a),onClick:()=>!sub&&!a&&!w&&togCheck(t.id)},
+        return h('div',{key:t.id,style:Z.tr(c,w,a),onClick:()=>!a&&!w&&togCheck(t.id)},
           h('div',{style:Z.ck(c,a?'#22C55E':w?'#FBB724':pk.c)},a?'✓':w?'⏳':c?'✓':''),
           h('span',{style:{fontSize:'1.3rem'}},t.icon),
           h('div',{style:{flex:1}},
@@ -339,9 +347,8 @@ function App(){
             hasTime&&h('span',{style:{fontSize:'.85rem',color:'rgba(255,255,255,.4)'}},fmtT(atm.at)+(atm.rb?' · Ready by '+fmtT(atm.rb):''))),
           h('span',{style:{...Z.pb,...(isR?{background:'rgba(255,215,0,.25)'}:{})}},'+'+tp+(isR?' 🔥':'')));
       }),
-      !allOk&&!sub&&!hasW&&h('button',{onClick:()=>submitSec(cat),disabled:chkd===0,style:{...Z.bt(chkd>0?'#22C55E':'rgba(255,255,255,.1)'),marginTop:6,opacity:chkd>0?1:.4}},'✋ Submit for Dad ('+chkd+'/'+list.length+')'),
-      !allOk&&hasW&&h('div',{style:{textAlign:'center',padding:10,color:'#FBB724',fontSize:'1rem'}},'⏳ Waiting for Dad...'),
-      !allOk&&!sub&&hasW&&chkd>0&&h('button',{onClick:()=>submitSec(cat),style:{...Z.bt('#22C55E'),marginTop:6,fontSize:'1.05rem'}},'✋ Submit More ('+chkd+')')
+      !allOk&&chkd>0&&h('button',{onClick:()=>submitSec(cat),style:{...Z.bt('#22C55E'),marginTop:6,fontSize:'1.05rem'}},'✋ Submit for Dad ('+chkd+')'),
+      !allOk&&hasW&&!chkd&&h('div',{style:{textAlign:'center',padding:10,color:'#FBB724',fontSize:'1rem'}},'⏳ Waiting for Dad...')
       ));
   }
 
@@ -498,13 +505,16 @@ function App(){
               )));
           }),
 
-          // Weekly chores - date-specific (no times)
-          h('h4',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)',margin:'0 0 8px 2px'}},CATS.weekly+' (by date)'),
-          ...tasks.filter(t=>t.cat==="weekly").map(task=>
-            h('div',{key:task.id,style:{...Z.cd,padding:'14px'}},
-              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2'))),h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
-              h(DateGrid,{task,wk1,wk2b,onTog:togWeekDate})
-            )),
+          // Weekly chores - recurring (same as school/daily)
+          ...(()=>{
+            const ct=tasks.filter(t=>t.cat==="weekly");if(!ct.length)return[];
+            return[h('div',{key:"weekly",style:{marginBottom:22}},
+              h('h4',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)',margin:'0 0 8px 2px'}},CATS.weekly+' (recurring)'),
+              ...ct.map(task=>h('div',{key:task.id,style:{...Z.cd,padding:'14px'}},
+                h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2'))),h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
+                h('div',{style:{display:'flex',gap:5}},...DORD.map((d,i)=>h('button',{key:d,className:'day-btn'+(task.days?.includes(d)?' on':''),onClick:()=>togDay(task.id,d)},DL[i])))
+              )))];
+          })(),
 
           // Activities - date-specific with times
           h('h4',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)',margin:'16px 0 8px 2px'}},CATS.activity+' (by date)'),
