@@ -91,13 +91,14 @@ const DT=[
 {id:"bathroom",label:"Clean bathroom",pts:8,cat:"weekly",icon:"🚿",rt:false,days:[...AD]},
 {id:"room",label:"Clean room",pts:5,cat:"weekly",icon:"🛏️",rt:false,days:[...AD]},
 {id:"dishwasher",label:"Empty the dishwasher",pts:4,cat:"weekly",icon:"🍽️",rt:false,days:[...AD]},
-{id:"bb_game",label:"Baseball game",pts:3,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:70},
-{id:"bb_prac",label:"Baseball practice",pts:2,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:35},
-{id:"sc_game",label:"Soccer game",pts:3,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:50},
-{id:"sc_prac",label:"Soccer practice",pts:2,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:25},
-{id:"swim",label:"Swimming",pts:2,cat:"activity",icon:"🏊",rt:false,days:[],sched:{},readyMins:25},
-{id:"climb",label:"Rock climbing",pts:2,cat:"activity",icon:"🧗",rt:false,days:[],sched:{},readyMins:20},
-{id:"other_act",label:"Other activity",pts:1,cat:"activity",icon:"🏃",rt:false,days:[],sched:{},readyMins:5},
+{id:"bb_game",label:"Baseball game",pts:3,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:70,forKid:"both"},
+{id:"bb_prac",label:"Baseball practice",pts:2,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:35,forKid:"both"},
+{id:"sc_game",label:"Soccer game",pts:3,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:50,forKid:"both"},
+{id:"sc_prac",label:"Soccer practice",pts:2,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:25,forKid:"both"},
+{id:"swim",label:"Swimming",pts:2,cat:"activity",icon:"🏊",rt:false,days:[],sched:{},readyMins:25,forKid:"both"},
+{id:"climb",label:"Rock climbing",pts:2,cat:"activity",icon:"🧗",rt:false,days:[],sched:{},readyMins:20,forKid:"both"},
+{id:"piano",label:"Piano lessons",pts:2,cat:"activity",icon:"🎹",rt:false,days:[],sched:{},readyMins:25,forKid:"kid2"},
+{id:"other_act",label:"Other activity",pts:1,cat:"activity",icon:"🏃",rt:false,days:[],sched:{},readyMins:5,forKid:"both"},
 ];
 
 const DR=[
@@ -108,6 +109,8 @@ const DR=[
 {id:"r_bed",label:"Extra 15min bedtime",cost:15,icon:"⏰"},
 {id:"r_ice",label:"Ice cream stop",cost:20,icon:"🍦"},
 {id:"r_dessert",label:"Choose dessert",cost:25,icon:"🍰"},
+{id:"r_foldme",label:"Mom or Dad folds your clothes",cost:25,icon:"👕"},
+{id:"r_bathme",label:"Mom or Dad cleans your bathroom",cost:25,icon:"🧽"},
 {id:"r_out",label:"Pick weekend outing",cost:30,icon:"🎉"},
 {id:"r_cards",label:"New card pack",cost:35,icon:"🃏"},
 {id:"r_book",label:"New book or comic",cost:40,icon:"📗"},
@@ -153,12 +156,14 @@ function fmtDateTiny(ds){
   return{dow:DL[di],dowFull:DLF[di],day:d.getDate(),mon:d.toLocaleDateString('en-US',{month:'short'})};
 }
 
-// Which tasks show today?
-function todayTasks(tasks){
+// Which tasks show today? Optional kid filter for per-kid activities
+function todayTasks(tasks,kid){
   const dc=dcNow(),dy=tdy();
   return tasks.filter(t=>{
-    if(t.sched)return !!t.sched[dy]; // weekly + activity: date-specific
-    return t.days&&t.days.includes(dc); // school + daily: recurring
+    const show=t.sched?!!t.sched[dy]:t.days&&t.days.includes(dc);
+    if(!show)return false;
+    if(kid&&t.forKid&&t.forKid!=="both"&&t.forKid!==kid)return false;
+    return true;
   });
 }
 
@@ -187,21 +192,31 @@ function App(){
   const[kids,setKids]=useState(S0?.kids||DK);
   const[tasks,setTasks]=useState(()=>{
     const loaded=S0?.tasks||DT;
-    // Migrate: merge readyMins from defaults into loaded tasks
-    const defaults={};DT.forEach(d=>{if(d.readyMins)defaults[d.id]=d.readyMins});
+    // Migrate: merge readyMins and forKid from defaults into loaded tasks
+    const defaults={};DT.forEach(d=>{if(d.readyMins)defaults[d.id]={rm:d.readyMins,fk:d.forKid||'both'}});
     let migrated=loaded.map(t=>{
-      let u=t.readyMins?t:defaults[t.id]?{...t,readyMins:defaults[t.id]}:t;
+      let u=t;
+      if(!u.readyMins&&defaults[u.id])u={...u,readyMins:defaults[u.id].rm};
+      if(u.cat==="activity"&&!u.forKid)u={...u,forKid:defaults[u.id]?.fk||'both'};
       // Migrate weekly tasks from sched-based to recurring days
       if(u.cat==="weekly"&&u.sched&&(!u.days||!u.days.length)){u={...u,days:[...AD]};delete u.sched}
       // Update fold laundry points
-      if(u.id==="fold"&&u.pts===5)u={...u,pts:10};
+      if(u.id==="fold"&&u.pts<10)u={...u,pts:10};
       return u;
     });
     // Add dishwasher if not present
     if(!migrated.find(t=>t.id==="dishwasher")){migrated.push({id:"dishwasher",label:"Empty the dishwasher",pts:4,cat:"weekly",icon:"🍽️",rt:false,days:[...AD]})}
+    // Add piano if not present
+    if(!migrated.find(t=>t.id==="piano")){migrated.push({id:"piano",label:"Piano lessons",pts:2,cat:"activity",icon:"🎹",rt:false,days:[],sched:{},readyMins:25,forKid:"kid2"})}
     return migrated;
   });
-  const[rews,setRews]=useState(S0?.rews||DR);
+  const[rews,setRews]=useState(()=>{
+    const loaded=S0?.rews||DR;
+    let r=[...loaded];
+    if(!r.find(x=>x.id==="r_foldme"))r.push({id:"r_foldme",label:"Mom or Dad folds your clothes",cost:25,icon:"👕"});
+    if(!r.find(x=>x.id==="r_bathme"))r.push({id:"r_bathme",label:"Mom or Dad cleans your bathroom",cost:25,icon:"🧽"});
+    return r;
+  });
   const[pens]=useState(S0?.pens||DP);
   const[comp,setComp]=useState(S0?.comp||{});
   const[appr,setAppr]=useState(S0?.appr||{});
@@ -221,7 +236,8 @@ function App(){
   const[nC,sNC]=useState("daily");
 
   const dy=tdy(),dc=dcNow();
-  const tt=todayTasks(tasks);
+  const ttAll=todayTasks(tasks);
+  const tt=aK?todayTasks(tasks,aK):ttAll;
 
   useEffect(()=>{sv({kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub})},[kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub]);
 
@@ -230,7 +246,7 @@ function App(){
   const isOk=(k,t)=>!!appr[K(k,t)];
   const isW=(k,t)=>pend.some(p=>p.k===k&&p.t===t&&p.d===dy);
   const isSec=(k,cat)=>!!secSub[`${k}-${cat}-${dy}`];
-  const okC=k=>tt.filter(t=>isOk(k,t.id)).length;
+  const okC=k=>{const kt=todayTasks(tasks,k);return kt.filter(t=>isOk(k,t.id)).length};
 
   const boom=p=>{setCf(true);setPop({v:true,p});setTimeout(()=>setCf(false),2000);setTimeout(()=>setPop({v:false,p:0}),1500)};
 
@@ -294,7 +310,7 @@ function App(){
     if(f==='at'&&v&&t.readyMins){const[hh,mm]=v.split(':').map(Number);const total=hh*60+mm-t.readyMins;const rh=Math.floor(((total%1440)+1440)%1440/60);const rm=((total%1440)+1440)%1440%60;s[date].rb=String(rh).padStart(2,'0')+':'+String(rm).padStart(2,'0');}
     return{...t,sched:s}}))};
 
-  const addTask=()=>{if(!nN.trim()||!nP)return;const isAct=nC==="activity";const isWeekly=nC==="weekly";setTasks(p=>[...p,{id:"t"+Date.now(),label:nN.trim(),pts:parseInt(nP),cat:nC,icon:"✅",rt:false,days:isWeekly?[...AD]:[],...(isAct?{sched:{}}:{})}]);sNN("");sNP("")};
+  const addTask=()=>{if(!nN.trim()||!nP)return;const isAct=nC==="activity";const isWeekly=nC==="weekly";setTasks(p=>[...p,{id:"t"+Date.now(),label:nN.trim(),pts:parseInt(nP),cat:nC,icon:"✅",rt:false,days:isWeekly?[...AD]:[],...(isAct?{sched:{},forKid:'both'}:{})}]);sNN("");sNP("")};
   const addRew=()=>{if(!nN.trim()||!nP)return;setRews(p=>[...p,{id:"r"+Date.now(),label:nN.trim(),cost:parseInt(nP),icon:"🎁"}]);sNN("");sNP("")};
   const sortRew=[...rews].sort((a,b)=>a.cost-b.cost);
 
@@ -321,7 +337,7 @@ function App(){
   function AvPick({kid}){
     const k=kids.find(x=>x.id===kid);
     return h('div',{},h('h3',{style:{fontSize:'1.15rem',fontWeight:600,margin:'0 0 14px'}},'Choose Your Pokémon'),
-      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}},...PKM.map(p=>h('button',{key:p.id,onClick:()=>setKids(pr=>pr.map(x=>x.id===kid?{...x,av:p.id}:x)),style:{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:10,borderRadius:14,border:k?.av===p.id?`3px solid ${p.c}`:'3px solid transparent',background:k?.av===p.id?p.c+'22':'rgba(255,255,255,.04)',cursor:'pointer'}},h('div',{style:{width:72,height:72,borderRadius:18,overflow:'hidden',background:`radial-gradient(circle,${p.c}33,transparent)`}},h('img',{src:sprUrl(p.n),style:{width:'100%',height:'100%',objectFit:'contain'},loading:'lazy'})),h('div',{style:{fontSize:'.9rem',color:k?.av===p.id?'#fff':'rgba(255,255,255,.5)',fontWeight:k?.av===p.id?600:400}},p.name)))));
+      h('div',{style:{display:'grid',gridTemplateColumns:'repeat(3,1fr)',gap:10}},...PKM.map(p=>h('button',{key:p.id,onClick:()=>setKids(pr=>pr.map(x=>x.id===kid?{...x,av:p.id}:x)),style:{display:'flex',flexDirection:'column',alignItems:'center',gap:4,padding:10,borderRadius:14,border:k?.av===p.id?`3px solid ${p.c}`:'3px solid transparent',background:k?.av===p.id?p.c+'22':'rgba(255,255,255,.04)',cursor:'pointer'}},h('div',{style:{width:88,height:88,borderRadius:22,overflow:'hidden',background:`radial-gradient(circle,${p.c}33,transparent)`}},h('img',{src:sprUrl(p.n),style:{width:'100%',height:'100%',objectFit:'contain'},loading:'lazy'})),h('div',{style:{fontSize:'.9rem',color:k?.av===p.id?'#fff':'rgba(255,255,255,.5)',fontWeight:k?.av===p.id?600:400}},p.name)))));
   }
 
   function KidSec({cat,label,list}){
@@ -366,16 +382,48 @@ function App(){
 
   // ═══ SPLASH ═══
   if(scr==="splash"){
+    const todayActs=ttAll.filter(t=>t.cat==="activity");
+    const todayChores=ttAll.filter(t=>t.cat==="weekly");
+    const todayDaily=ttAll.filter(t=>t.cat==="daily");
+    const todaySchool=ttAll.filter(t=>t.cat==="school");
     return h('div',{},h(Conf,{on:cf}),h(PopEl,pop),
-      h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',justifyContent:'center',minHeight:'100vh',padding:20}},
+      h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',padding:'40px 20px 30px'}},
         h('div',{style:{fontSize:'4rem',marginBottom:6,animation:'bounce 2s infinite'}},'🎮'),
         h('h1',{style:{fontSize:'2.5rem',fontWeight:700,margin:'0 0 4px',background:'linear-gradient(135deg,#FFD700,#FFA500)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}},'TaskQuest'),
-        h('p',{style:{color:'rgba(255,255,255,.45)',margin:'0 0 4px',fontSize:'1.1rem'}},'Complete quests. Earn rewards.'),
-        h('p',{style:{color:'rgba(255,255,255,.35)',margin:'0 0 34px',fontSize:'.95rem'}},fullToday()),
-        h('div',{style:{width:'100%',maxWidth:360,display:'flex',flexDirection:'column',gap:14}},
-          ...kids.map(k=>{const pk=gp(k.av);return h('button',{key:k.id,onClick:()=>{setAK(k.id);setScr("kidHome")},style:{...Z.bt(pk.c),display:'flex',alignItems:'center',justifyContent:'center',gap:14,padding:'18px 22px'}},h(Badge,{av:k.av,sz:50}),h('span',{style:{fontSize:'1.25rem'}},k.name),h('span',{style:{marginLeft:'auto',opacity:.8,fontSize:'1rem'}},(pts[k.id]||0)+' pts'))}),
-          h('button',{onClick:()=>{setPin("");setPErr(false);setScr("pin")},style:{...Z.bt('rgba(255,255,255,.12)'),boxShadow:'none',border:'1px solid rgba(255,255,255,.15)',marginTop:20}},'🔒 Parent Mode'))
-      ));
+        h('p',{style:{color:'rgba(255,255,255,.35)',margin:'0 0 24px',fontSize:'1.05rem'}},fullToday())),
+      h('div',{style:{padding:'0 16px 20px',maxWidth:420,margin:'0 auto',width:'100%'}},
+        ...kids.map(k=>{const pk=gp(k.av);const kTasks=todayTasks(tasks,k.id);const kActs=kTasks.filter(t=>t.cat==="activity");const kDone=kTasks.filter(t=>isOk(k.id,t.id)).length;
+          return h('button',{key:k.id,onClick:()=>{setAK(k.id);setScr("kidHome")},style:{...Z.bt(pk.c),display:'flex',alignItems:'center',gap:16,padding:'18px 22px',marginBottom:14,width:'100%',textAlign:'left'}},
+            h(Badge,{av:k.av,sz:72}),
+            h('div',{style:{flex:1,minWidth:0}},
+              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:4}},h('span',{style:{fontSize:'1.3rem',fontWeight:700}},k.name),h('span',{style:{opacity:.7,fontSize:'.95rem'}},(pts[k.id]||0)+' pts')),
+              kActs.length>0&&h('div',{style:{fontSize:'.95rem',opacity:.85}},...kActs.map((a,i)=>{const tm=a.sched?.[dy];const timeStr=tm&&typeof tm==='object'&&tm.at?(' @ '+fmtT(tm.at)):'';return h('span',{key:a.id},(i>0?', ':'')+a.icon+' '+a.label+timeStr)})),
+              kActs.length===0&&h('div',{style:{fontSize:'.95rem',opacity:.6}},'No activities today'),
+              h('div',{style:{fontSize:'.85rem',opacity:.5,marginTop:2}},kDone+'/'+kTasks.length+' tasks done')))}),
+
+        // Today's full schedule
+        (todayActs.length>0||todayChores.length>0)&&h('div',{style:{marginTop:10}},
+          h('h2',{style:{fontSize:'1.2rem',fontWeight:700,color:'rgba(255,255,255,.6)',margin:'0 0 12px 2px'}},"📋 Today's Schedule"),
+
+          todayActs.length>0&&h('div',{style:{marginBottom:14}},
+            ...todayActs.map(a=>{
+              const tm=a.sched?.[dy];const tmObj=tm&&typeof tm==='object'?tm:{};
+              const kidLabel=a.forKid==='kid1'?'Max':a.forKid==='kid2'?'Mars':'Both';
+              const kidCol=a.forKid==='kid1'?gp(kids[0]?.av).c:a.forKid==='kid2'?gp(kids[1]?.av).c:'rgba(255,255,255,.3)';
+              return h('div',{key:a.id,style:{...Z.cd,padding:'16px 18px',display:'flex',alignItems:'center',gap:14}},
+                h('span',{style:{fontSize:'2rem'}},a.icon),
+                h('div',{style:{flex:1}},
+                  h('div',{style:{fontSize:'1.15rem',fontWeight:600}},a.label),
+                  tmObj.at&&h('div',{style:{fontSize:'1.05rem',color:'rgba(255,255,255,.5)',marginTop:2}},'Starts '+fmtT(tmObj.at)+(tmObj.rb?' · Ready by '+fmtT(tmObj.rb):''))),
+                h('span',{style:{background:kidCol+'33',color:kidCol,padding:'4px 10px',borderRadius:10,fontSize:'.85rem',fontWeight:600,border:'1px solid '+kidCol+'44'}},kidLabel))})),
+
+          todayChores.length>0&&h('div',{},
+            h('div',{style:{fontSize:'.95rem',color:'rgba(255,255,255,.4)',margin:'0 0 8px 2px',fontWeight:600}},'🗓️ Available Chores'),
+            ...todayChores.map(c=>h('div',{key:c.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',marginBottom:4,borderRadius:10,background:'rgba(255,255,255,.04)'}},
+              h('span',{style:{fontSize:'1.3rem'}},c.icon),h('span',{style:{fontSize:'1.05rem',opacity:.7}},c.label),h('span',{style:{marginLeft:'auto',color:'#FFD700',fontSize:'.9rem'}},c.pts+' pts'))))),
+
+        h('button',{onClick:()=>{setPin("");setPErr(false);setScr("pin")},style:{...Z.bt('rgba(255,255,255,.12)'),boxShadow:'none',border:'1px solid rgba(255,255,255,.15)',marginTop:24}},'🔒 Parent Mode'))
+    );
   }
 
   // ═══ PIN ═══
@@ -394,7 +442,7 @@ function App(){
   if(scr==="kidHome"||scr==="kidShop"||scr==="kidStats"||scr==="kidAv"){
     const kid=kids.find(x=>x.id===aK),pk=gp(kid?.av);
     const ac=okC(aK),prog=tt.length>0?ac/tt.length:0;
-    const hdr=h('div',{style:Z.hdr},h('button',{style:Z.bk,onClick:()=>setScr("splash")},'←'),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h(Badge,{av:kid?.av,sz:36}),h('span',{style:{fontWeight:600,fontSize:'1.15rem'}},kid?.name)),h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(255,215,0,.12)',padding:'6px 12px',borderRadius:16}},h('span',{style:{fontSize:'1rem'}},'💰'),h('span',{style:{color:'#FFD700',fontWeight:700,fontSize:'1.05rem'}},pts[aK]||0)));
+    const hdr=h('div',{style:Z.hdr},h('button',{style:Z.bk,onClick:()=>setScr("splash")},'←'),h('div',{style:{display:'flex',alignItems:'center',gap:8}},h(Badge,{av:kid?.av,sz:52}),h('span',{style:{fontWeight:600,fontSize:'1.15rem'}},kid?.name)),h('div',{style:{display:'flex',alignItems:'center',gap:5,background:'rgba(255,215,0,.12)',padding:'6px 12px',borderRadius:16}},h('span',{style:{fontSize:'1rem'}},'💰'),h('span',{style:{color:'#FFD700',fontWeight:700,fontSize:'1.05rem'}},pts[aK]||0)));
     const tabs=h('div',{style:{display:'flex',gap:2,padding:'8px 12px',background:'rgba(0,0,0,.2)'}},
       h('button',{style:Z.tb(scr==="kidHome"),onClick:()=>setScr("kidHome")},'📋 Tasks'),
       h('button',{style:Z.tb(scr==="kidShop"),onClick:()=>setScr("kidShop")},'🎁 Shop'),
@@ -451,7 +499,7 @@ function App(){
         // ═ APPROVALS ═
         pTab==="approvals"&&h('div',{},
           h('div',{style:{textAlign:'center',padding:'4px 0 12px',color:'rgba(255,255,255,.35)',fontSize:'.92rem'}},fullToday()),
-          h('div',{style:{display:'flex',gap:10,marginBottom:14}},...kids.map(k=>h('div',{key:k.id,style:{...Z.cd,flex:1,textAlign:'center',padding:'14px 8px',display:'flex',flexDirection:'column',alignItems:'center'}},h(Badge,{av:k.av,sz:44}),h('div',{style:{fontWeight:600,fontSize:'1rem',marginTop:4}},k.name),h('div',{style:{color:'#FFD700',fontWeight:700,fontSize:'1.3rem'}},pts[k.id]||0),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'📖 '+rStr(appr,k.id)+' days')))),
+          h('div',{style:{display:'flex',gap:10,marginBottom:14}},...kids.map(k=>h('div',{key:k.id,style:{...Z.cd,flex:1,textAlign:'center',padding:'14px 8px',display:'flex',flexDirection:'column',alignItems:'center'}},h(Badge,{av:k.av,sz:64}),h('div',{style:{fontWeight:600,fontSize:'1rem',marginTop:4}},k.name),h('div',{style:{color:'#FFD700',fontWeight:700,fontSize:'1.3rem'}},pts[k.id]||0),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'📖 '+rStr(appr,k.id)+' days')))),
 
           rwP.length>0&&h('div',{style:{marginBottom:14}},
             h('h3',{style:{fontSize:'1.1rem',fontWeight:600,margin:'0 0 10px 2px'}},'🎁 Reward Requests'),
@@ -518,23 +566,33 @@ function App(){
 
           // Activities - date-specific with times
           h('h4',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)',margin:'16px 0 8px 2px'}},CATS.activity+' (by date)'),
-          ...tasks.filter(t=>t.cat==="activity").map(task=>{
-            const schDates=Object.keys(task.sched||{}).filter(d=>d>=dy||(new Date(d+"T12:00:00")>=getMonday(new Date()))).sort();
-            const rmLabel=task.readyMins?(' · '+task.readyMins+'min early'):'';
-            return h('div',{key:task.id,style:{...Z.cd,padding:'14px'}},
-              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2')+rmLabel)),h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
-              h(DateGrid,{task,wk1,wk2b,onTog:togActDate}),
-              schDates.length>0&&h('div',{style:{marginTop:10}},...schDates.map(date=>{
-                const tm=(task.sched||{})[date]||{at:'',rb:''};
-                const tmObj=typeof tm==='object'?tm:{at:'',rb:''};
-                return h('div',{key:date,style:{display:'flex',alignItems:'center',gap:7,marginBottom:7,fontSize:'.88rem',flexWrap:'wrap'}},
-                  h('span',{style:{minWidth:85,color:date===dy?'#FFD700':'rgba(255,255,255,.5)',fontWeight:600,fontSize:'.85rem'}},fmtDateShort(date)),
-                  h('span',{style:{color:'rgba(255,255,255,.35)',fontSize:'.82rem'}},'At:'),
-                  h('input',{type:'time',className:'tm-inp',value:tmObj.at||'',onChange:e=>setActTm(task.id,date,'at',e.target.value)}),
-                  h('span',{style:{color:'rgba(255,255,255,.35)',fontSize:'.82rem'}},'Ready:'),
-                  h('input',{type:'time',className:'tm-inp',value:tmObj.rb||'',onChange:e=>setActTm(task.id,date,'rb',e.target.value)}))
+          ...kids.map(k=>{
+            const pk=gp(k.av);
+            const kActs=tasks.filter(t=>t.cat==="activity"&&(t.forKid==="both"||t.forKid===k.id));
+            if(!kActs.length)return null;
+            return h('div',{key:k.id,style:{marginBottom:18}},
+              h('div',{style:{display:'flex',alignItems:'center',gap:8,margin:'0 0 10px 2px'}},h(Badge,{av:k.av,sz:32}),h('span',{style:{fontWeight:600,fontSize:'1.05rem',color:pk.c}},k.name+"'s Activities")),
+              ...kActs.map(task=>{
+                const schDates=Object.keys(task.sched||{}).filter(d=>d>=dy||(new Date(d+"T12:00:00")>=getMonday(new Date()))).sort();
+                const rmLabel=task.readyMins?(' · '+task.readyMins+'min early'):'';
+                const fkLabel=task.forKid==="both"?"Both":task.forKid==="kid1"?"Max only":"Mars only";
+                return h('div',{key:task.id,style:{...Z.cd,padding:'14px'}},
+                  h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2')+rmLabel)),
+                    h('select',{value:task.forKid||'both',onChange:e=>setTasks(p=>p.map(t=>t.id===task.id?{...t,forKid:e.target.value}:t)),style:{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.2)',borderRadius:8,padding:'4px 6px',color:'#fff',fontSize:'.8rem',cursor:'pointer'}},h('option',{value:'both',style:{color:'#000'}},'Both'),h('option',{value:'kid1',style:{color:'#000'}},'Max'),h('option',{value:'kid2',style:{color:'#000'}},'Mars')),
+                    h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
+                  h(DateGrid,{task,wk1,wk2b,onTog:togActDate}),
+                  schDates.length>0&&h('div',{style:{marginTop:10}},...schDates.map(date=>{
+                    const tm=(task.sched||{})[date]||{at:'',rb:''};
+                    const tmObj=typeof tm==='object'?tm:{at:'',rb:''};
+                    return h('div',{key:date,style:{display:'flex',alignItems:'center',gap:7,marginBottom:7,fontSize:'.88rem',flexWrap:'wrap'}},
+                      h('span',{style:{minWidth:85,color:date===dy?'#FFD700':'rgba(255,255,255,.5)',fontWeight:600,fontSize:'.85rem'}},fmtDateShort(date)),
+                      h('span',{style:{color:'rgba(255,255,255,.35)',fontSize:'.82rem'}},'At:'),
+                      h('input',{type:'time',className:'tm-inp',value:tmObj.at||'',onChange:e=>setActTm(task.id,date,'at',e.target.value)}),
+                      h('span',{style:{color:'rgba(255,255,255,.35)',fontSize:'.82rem'}},'Ready:'),
+                      h('input',{type:'time',className:'tm-inp',value:tmObj.rb||'',onChange:e=>setActTm(task.id,date,'rb',e.target.value)}))
+                  })))
               }))
-            )})
+          })
         ),
 
         // ═ REWARDS ═
@@ -545,7 +603,7 @@ function App(){
 
         // ═ KIDS / RESET ═
         pTab==="kids"&&h('div',{},
-          ...kids.map(k=>{const pk=gp(k.av);return h('div',{key:k.id,style:{...Z.cd,marginBottom:14,display:'flex',alignItems:'center',gap:14}},h(Badge,{av:k.av,sz:58}),h('div',{},h('div',{style:{fontWeight:700,fontSize:'1.25rem'}},k.name),h('div',{style:{fontSize:'.92rem',color:'rgba(255,255,255,.4)'}},pk.name)))}),
+          ...kids.map(k=>{const pk=gp(k.av);return h('div',{key:k.id,style:{...Z.cd,marginBottom:14,display:'flex',alignItems:'center',gap:14}},h(Badge,{av:k.av,sz:74}),h('div',{},h('div',{style:{fontWeight:700,fontSize:'1.25rem'}},k.name),h('div',{style:{fontSize:'.92rem',color:'rgba(255,255,255,.4)'}},pk.name)))}),
           h('h3',{style:{fontSize:'1.05rem',fontWeight:600,margin:'20px 0 10px 2px'}},'Reset'),
           ...kids.map(k=>h('button',{key:k.id,onClick:()=>{if(confirm('Reset '+k.name+'\'s points to 0?'))setPts(p=>({...p,[k.id]:0}))},style:{display:'block',width:'100%',background:'rgba(239,68,68,.08)',border:'1px solid rgba(239,68,68,.2)',color:'#EF4444',padding:'14px',borderRadius:10,fontSize:'1rem',fontWeight:600,cursor:'pointer',marginBottom:8}},'Reset '+k.name+'\'s Points')),
           h('button',{onClick:()=>{if(confirm('Reset ALL data? Cannot be undone.')){setPts({kid1:0,kid2:0});setComp({});setAppr({});setPend([]);setRdm([]);setRwP([]);setPLog([]);setSecSub({})}},style:{display:'block',width:'100%',background:'rgba(239,68,68,.15)',border:'1px solid rgba(239,68,68,.3)',color:'#EF4444',padding:'14px',borderRadius:10,fontSize:'1rem',fontWeight:600,cursor:'pointer',marginTop:10}},'⚠️ Reset All Data'))
