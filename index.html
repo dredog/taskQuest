@@ -90,13 +90,13 @@ const DT=[
 {id:"wash",label:"Wash/dry clothes",pts:5,cat:"weekly",icon:"🧺",rt:false,days:[],sched:{}},
 {id:"bathroom",label:"Clean bathroom",pts:8,cat:"weekly",icon:"🚿",rt:false,days:[],sched:{}},
 {id:"room",label:"Clean room",pts:5,cat:"weekly",icon:"🛏️",rt:false,days:[],sched:{}},
-{id:"bb_game",label:"Baseball game",pts:3,cat:"activity",icon:"⚾",rt:false,days:[],sched:{}},
-{id:"bb_prac",label:"Baseball practice",pts:2,cat:"activity",icon:"⚾",rt:false,days:[],sched:{}},
-{id:"sc_game",label:"Soccer game",pts:3,cat:"activity",icon:"⚽",rt:false,days:[],sched:{}},
-{id:"sc_prac",label:"Soccer practice",pts:2,cat:"activity",icon:"⚽",rt:false,days:[],sched:{}},
-{id:"swim",label:"Swimming",pts:2,cat:"activity",icon:"🏊",rt:false,days:[],sched:{}},
-{id:"climb",label:"Rock climbing",pts:2,cat:"activity",icon:"🧗",rt:false,days:[],sched:{}},
-{id:"other_act",label:"Other activity",pts:1,cat:"activity",icon:"🏃",rt:false,days:[],sched:{}},
+{id:"bb_game",label:"Baseball game",pts:3,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:70},
+{id:"bb_prac",label:"Baseball practice",pts:2,cat:"activity",icon:"⚾",rt:false,days:[],sched:{},readyMins:35},
+{id:"sc_game",label:"Soccer game",pts:3,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:50},
+{id:"sc_prac",label:"Soccer practice",pts:2,cat:"activity",icon:"⚽",rt:false,days:[],sched:{},readyMins:25},
+{id:"swim",label:"Swimming",pts:2,cat:"activity",icon:"🏊",rt:false,days:[],sched:{},readyMins:25},
+{id:"climb",label:"Rock climbing",pts:2,cat:"activity",icon:"🧗",rt:false,days:[],sched:{},readyMins:20},
+{id:"other_act",label:"Other activity",pts:1,cat:"activity",icon:"🏃",rt:false,days:[],sched:{},readyMins:5},
 ];
 
 const DR=[
@@ -184,7 +184,12 @@ function App(){
   const[scr,setScr]=useState("splash");
   const[aK,setAK]=useState(null);
   const[kids,setKids]=useState(S0?.kids||DK);
-  const[tasks,setTasks]=useState(S0?.tasks||DT);
+  const[tasks,setTasks]=useState(()=>{
+    const loaded=S0?.tasks||DT;
+    // Migrate: merge readyMins from defaults into loaded tasks
+    const defaults={};DT.forEach(d=>{if(d.readyMins)defaults[d.id]=d.readyMins});
+    return loaded.map(t=>t.readyMins?t:defaults[t.id]?{...t,readyMins:defaults[t.id]}:t);
+  });
   const[rews,setRews]=useState(S0?.rews||DR);
   const[pens]=useState(S0?.pens||DP);
   const[comp,setComp]=useState(S0?.comp||{});
@@ -233,11 +238,14 @@ function App(){
   };
 
   const doApprAll=(kid,tids)=>{
-    let tot=0;const na={};
+    let tot=0;const na={};const cats=new Set();
     tids.forEach(tid=>{const k=`${kid}-${tid}-${dy}`,task=tasks.find(t=>t.id===tid);
-      if(task){na[k]=true;let p=tPts(task,kid);if(task.id==="reading")p*=sMul(rStr({...appr,...na},kid));tot+=p}});
-    setAppr(p=>({...p,...na}));setPts(p=>({...p,[kid]:(p[kid]||0)+tot}));
-    setPend(p=>p.filter(x=>!(x.k===kid&&tids.includes(x.t)&&x.d===dy)));if(tot>0)boom(tot);
+      if(task){na[k]=true;cats.add(task.cat);let p=tPts(task,kid);if(task.id==="reading")p*=sMul(rStr({...appr,...na},kid));tot+=p}});
+    const newAppr={...appr,...na};setAppr(newAppr);setPts(p=>({...p,[kid]:(p[kid]||0)+tot}));
+    setPend(p=>p.filter(x=>!(x.k===kid&&tids.includes(x.t)&&x.d===dy)));
+    // Clear secSub for approved categories so kid can check/submit remaining tasks
+    setSecSub(p=>{const n={...p};cats.forEach(cat=>{const catTasks=tt.filter(t=>t.cat===cat);const allDone=catTasks.every(t=>!!newAppr[`${kid}-${t.id}-${dy}`]);if(!allDone)delete n[`${kid}-${cat}-${dy}`]});return n});
+    if(tot>0)boom(tot);
   };
   const doRej=(kid,tid)=>{
     const k=`${kid}-${tid}-${dy}`;setComp(p=>{const n={...p};delete n[k];return n});
@@ -273,7 +281,10 @@ function App(){
       return{...t,sched:s};
     }));
   };
-  const setActTm=(tid,date,f,v)=>{setTasks(p=>p.map(t=>{if(t.id!==tid)return t;const s={...(t.sched||{})};if(!s[date]||typeof s[date]!=='object')s[date]={at:'',rb:''};s[date]={...s[date],[f]:v};return{...t,sched:s}}))};
+  const setActTm=(tid,date,f,v)=>{setTasks(p=>p.map(t=>{if(t.id!==tid)return t;const s={...(t.sched||{})};if(!s[date]||typeof s[date]!=='object')s[date]={at:'',rb:''};s[date]={...s[date],[f]:v};
+    // Auto-fill ready-by when start time changes and activity has readyMins
+    if(f==='at'&&v&&t.readyMins){const[hh,mm]=v.split(':').map(Number);const total=hh*60+mm-t.readyMins;const rh=Math.floor(((total%1440)+1440)%1440/60);const rm=((total%1440)+1440)%1440%60;s[date].rb=String(rh).padStart(2,'0')+':'+String(rm).padStart(2,'0');}
+    return{...t,sched:s}}))};
 
   const addTask=()=>{if(!nN.trim()||!nP)return;const isDate=nC==="activity"||nC==="weekly";setTasks(p=>[...p,{id:"t"+Date.now(),label:nN.trim(),pts:parseInt(nP),cat:nC,icon:"✅",rt:false,days:[],...(isDate?{sched:{}}:{})}]);sNN("");sNP("")};
   const addRew=()=>{if(!nN.trim()||!nP)return;setRews(p=>[...p,{id:"r"+Date.now(),label:nN.trim(),cost:parseInt(nP),icon:"🎁"}]);sNN("");sNP("")};
@@ -499,8 +510,9 @@ function App(){
           h('h4',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)',margin:'16px 0 8px 2px'}},CATS.activity+' (by date)'),
           ...tasks.filter(t=>t.cat==="activity").map(task=>{
             const schDates=Object.keys(task.sched||{}).filter(d=>d>=dy||(new Date(d+"T12:00:00")>=getMonday(new Date()))).sort();
+            const rmLabel=task.readyMins?(' · '+task.readyMins+'min early'):'';
             return h('div',{key:task.id,style:{...Z.cd,padding:'14px'}},
-              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2'))),h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
+              h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:8}},h('span',{style:{fontSize:'1.15rem'}},task.icon),h('div',{style:{flex:1}},h('div',{style:{fontWeight:500,fontSize:'1rem'}},task.label),h('div',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)'}},'Max: '+task.pts+' · Mars: '+tPts(task,'kid2')+rmLabel)),h('button',{onClick:()=>setTasks(p=>p.filter(t=>t.id!==task.id)),style:{background:'rgba(239,68,68,.15)',border:'none',color:'#EF4444',padding:'6px 12px',borderRadius:8,cursor:'pointer',fontSize:'.92rem'}},'✕')),
               h(DateGrid,{task,wk1,wk2b,onTog:togActDate}),
               schDates.length>0&&h('div',{style:{marginTop:10}},...schDates.map(date=>{
                 const tm=(task.sched||{})[date]||{at:'',rb:''};
