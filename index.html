@@ -129,21 +129,31 @@ const DP=[
 
 const DK=[{id:"kid1",name:"Max",av:"charizard"},{id:"kid2",name:"Mars",av:"pikachu"}];
 
-function tdy(){return new Date().toISOString().split("T")[0]}
-function dcNow(){return DC[new Date().getDay()]}
-function dateOff(n){const d=new Date();d.setDate(d.getDate()-n);return d.toISOString().split("T")[0]}
+// All dates in Eastern Time. Task day extends until 9am ET next morning.
+function estNow(){return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}))}
+function estDateStr(d){const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0');return y+'-'+m+'-'+day}
+function calDay(){return estDateStr(estNow())} // actual calendar date in ET
+function tdy(){const n=estNow();if(n.getHours()<9){const y=new Date(n);y.setDate(y.getDate()-1);return estDateStr(y)}return estDateStr(n)} // task day: before 9am=yesterday
+function tmrw(){const n=estNow();const t=new Date(n);t.setDate(t.getDate()+1);return estDateStr(t)} // tomorrow calendar date
+function dcFor(ds){const d=new Date(ds+"T12:00:00");return DC[d.getDay()]}
+function dcNow(){return dcFor(tdy())}
+function dateOff(n){const d=new Date(tdy()+"T12:00:00");d.setDate(d.getDate()-n);return estDateStr(d)}
 function tPts(t,k){return k==="kid2"&&!t.rt?t.pts+1:t.pts}
 function rStr(ap,k){let s=0;for(let i=0;i<30;i++){if(ap[`${k}-reading-${dateOff(i)}`])s++;else if(i===0)continue;else break;}if(!s&&ap[`${k}-reading-${tdy()}`])s=1;return s}
 function sMul(s){return s>=4?2:1}
 function fmtT(t){if(!t)return"";const[hh,mm]=t.split(":");const hr=parseInt(hh);return(hr===0?12:hr>12?hr-12:hr)+":"+(mm||"00")+(hr>=12?" PM":" AM")}
 
 function fullToday(){
-  const d=new Date();
+  const d=new Date(tdy()+"T12:00:00");
+  return DLFULL[d.getDay()]+', '+MFULL[d.getMonth()]+' '+d.getDate();
+}
+function fullDate(ds){
+  const d=new Date(ds+"T12:00:00");
   return DLFULL[d.getDay()]+', '+MFULL[d.getMonth()]+' '+d.getDate();
 }
 
 function getMonday(d){const dt=new Date(d);const day=dt.getDay();const diff=day===0?-6:1-day;dt.setDate(dt.getDate()+diff);return dt}
-function get2Weeks(){const mon=getMonday(new Date());const out=[];for(let i=0;i<14;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);out.push(d.toISOString().split("T")[0])}return out}
+function get2Weeks(){const mon=getMonday(new Date(tdy()+"T12:00:00"));const out=[];for(let i=0;i<14;i++){const d=new Date(mon);d.setDate(mon.getDate()+i);out.push(estDateStr(d))}return out}
 
 function fmtDateShort(ds){
   const d=new Date(ds+"T12:00:00");
@@ -156,16 +166,17 @@ function fmtDateTiny(ds){
   return{dow:DL[di],dowFull:DLF[di],day:d.getDate(),mon:d.toLocaleDateString('en-US',{month:'short'})};
 }
 
-// Which tasks show today? Optional kid filter for per-kid activities
-function todayTasks(tasks,kid){
-  const dc=dcNow(),dy=tdy();
+// Which tasks show for a given date? Optional kid filter for per-kid activities
+function tasksForDate(tasks,dateStr,kid){
+  const dc=dcFor(dateStr);
   return tasks.filter(t=>{
-    const show=t.sched?!!t.sched[dy]:t.days&&t.days.includes(dc);
+    const show=t.sched?!!t.sched[dateStr]:t.days&&t.days.includes(dc);
     if(!show)return false;
     if(kid&&t.forKid&&t.forKid!=="both"&&t.forKid!==kid)return false;
     return true;
   });
 }
+function todayTasks(tasks,kid){return tasksForDate(tasks,tdy(),kid)}
 
 // Get the most recent times from an activity's schedule to auto-fill new dates
 function getLastTimes(sched){
@@ -384,13 +395,16 @@ function App(){
   if(scr==="splash"){
     const todayActs=ttAll.filter(t=>t.cat==="activity");
     const todayChores=ttAll.filter(t=>t.cat==="weekly");
-    const todayDaily=ttAll.filter(t=>t.cat==="daily");
-    const todaySchool=ttAll.filter(t=>t.cat==="school");
+    const tmrwDate=tmrw();
+    const tmrwAll=tasksForDate(tasks,tmrwDate);
+    const tmrwActs=tmrwAll.filter(t=>t.cat==="activity");
+    const isGrace=estNow().getHours()<9;
     return h('div',{},h(Conf,{on:cf}),h(PopEl,pop),
       h('div',{style:{display:'flex',flexDirection:'column',alignItems:'center',padding:'40px 20px 30px'}},
         h('div',{style:{fontSize:'4rem',marginBottom:6,animation:'bounce 2s infinite'}},'🎮'),
         h('h1',{style:{fontSize:'2.5rem',fontWeight:700,margin:'0 0 4px',background:'linear-gradient(135deg,#FFD700,#FFA500)',WebkitBackgroundClip:'text',WebkitTextFillColor:'transparent'}},'TaskQuest'),
-        h('p',{style:{color:'rgba(255,255,255,.35)',margin:'0 0 24px',fontSize:'1.05rem'}},fullToday())),
+        h('p',{style:{color:'rgba(255,255,255,.35)',margin:'0 0 4px',fontSize:'1.05rem'}},fullToday()),
+        isGrace&&h('p',{style:{color:'#FBB724',margin:'0 0 4px',fontSize:'.88rem'}},'⏰ Tasks open until 9:00 AM')),
       h('div',{style:{padding:'0 16px 20px',maxWidth:420,margin:'0 auto',width:'100%'}},
         ...kids.map(k=>{const pk=gp(k.av);const kTasks=todayTasks(tasks,k.id);const kActs=kTasks.filter(t=>t.cat==="activity");const kDone=kTasks.filter(t=>isOk(k.id,t.id)).length;
           return h('button',{key:k.id,onClick:()=>{setAK(k.id);setScr("kidHome")},style:{...Z.bt(pk.c),display:'flex',alignItems:'center',gap:16,padding:'18px 22px',marginBottom:14,width:'100%',textAlign:'left'}},
@@ -401,7 +415,7 @@ function App(){
               kActs.length===0&&h('div',{style:{fontSize:'.95rem',opacity:.6}},'No activities today'),
               h('div',{style:{fontSize:'.85rem',opacity:.5,marginTop:2}},kDone+'/'+kTasks.length+' tasks done')))}),
 
-        // Today's full schedule
+        // Today's schedule
         (todayActs.length>0||todayChores.length>0)&&h('div',{style:{marginTop:10}},
           h('h2',{style:{fontSize:'1.2rem',fontWeight:700,color:'rgba(255,255,255,.6)',margin:'0 0 12px 2px'}},"📋 Today's Schedule"),
 
@@ -421,6 +435,23 @@ function App(){
             h('div',{style:{fontSize:'.95rem',color:'rgba(255,255,255,.4)',margin:'0 0 8px 2px',fontWeight:600}},'🗓️ Available Chores'),
             ...todayChores.map(c=>h('div',{key:c.id,style:{display:'flex',alignItems:'center',gap:10,padding:'8px 14px',marginBottom:4,borderRadius:10,background:'rgba(255,255,255,.04)'}},
               h('span',{style:{fontSize:'1.3rem'}},c.icon),h('span',{style:{fontSize:'1.05rem',opacity:.7}},c.label),h('span',{style:{marginLeft:'auto',color:'#FFD700',fontSize:'.9rem'}},c.pts+' pts'))))),
+
+        // Tomorrow's schedule
+        h('div',{style:{marginTop:20}},
+          h('h2',{style:{fontSize:'1.2rem',fontWeight:700,color:'rgba(255,255,255,.45)',margin:'0 0 12px 2px'}},'📆 Tomorrow — '+fullDate(tmrwDate)),
+
+          tmrwActs.length>0?h('div',{style:{marginBottom:14}},
+            ...tmrwActs.map(a=>{
+              const tm=a.sched?.[tmrwDate];const tmObj=tm&&typeof tm==='object'?tm:{};
+              const kidLabel=a.forKid==='kid1'?'Max':a.forKid==='kid2'?'Mars':'Both';
+              const kidCol=a.forKid==='kid1'?gp(kids[0]?.av).c:a.forKid==='kid2'?gp(kids[1]?.av).c:'rgba(255,255,255,.3)';
+              return h('div',{key:a.id,style:{...Z.cd,padding:'14px 16px',display:'flex',alignItems:'center',gap:12,opacity:.75}},
+                h('span',{style:{fontSize:'1.6rem'}},a.icon),
+                h('div',{style:{flex:1}},
+                  h('div',{style:{fontSize:'1.05rem',fontWeight:600}},a.label),
+                  tmObj.at&&h('div',{style:{fontSize:'.95rem',color:'rgba(255,255,255,.4)',marginTop:2}},'Starts '+fmtT(tmObj.at)+(tmObj.rb?' · Ready by '+fmtT(tmObj.rb):''))),
+                h('span',{style:{background:kidCol+'22',color:kidCol,padding:'4px 10px',borderRadius:10,fontSize:'.82rem',fontWeight:600,border:'1px solid '+kidCol+'33'}},kidLabel))})):
+          h('div',{style:{...Z.cd,textAlign:'center',color:'rgba(255,255,255,.3)',padding:'16px'}},h('div',{style:{fontSize:'1.5rem',marginBottom:4}},'😎'),h('div',{style:{fontSize:'1rem'}},'No activities scheduled'))),
 
         h('button',{onClick:()=>{setPin("");setPErr(false);setScr("pin")},style:{...Z.bt('rgba(255,255,255,.12)'),boxShadow:'none',border:'1px solid rgba(255,255,255,.15)',marginTop:24}},'🔒 Parent Mode'))
     );
@@ -453,7 +484,8 @@ function App(){
       const gr={};tt.forEach(t=>{if(!gr[t.cat])gr[t.cat]=[];gr[t.cat].push(t)});
       return h('div',{},h(Conf,{on:cf}),h(PopEl,pop),hdr,tabs,
         h('div',{style:{padding:'14px 14px 80px'}},
-          h('div',{style:{textAlign:'center',padding:'6px 0 12px',color:'rgba(255,255,255,.4)',fontSize:'.95rem',fontWeight:500}},fullToday()),
+          h('div',{style:{textAlign:'center',padding:'6px 0 4px',color:'rgba(255,255,255,.4)',fontSize:'.95rem',fontWeight:500}},fullToday()),
+          estNow().getHours()<9&&h('div',{style:{textAlign:'center',padding:'0 0 8px',color:'#FBB724',fontSize:'.85rem'}},'⏰ Tasks open until 9:00 AM'),
           h('div',{style:Z.cd},h('div',{style:{display:'flex',justifyContent:'space-between',marginBottom:6}},h('span',{style:{fontSize:'1rem',color:'rgba(255,255,255,.5)'}},'Today\'s Progress'),h('span',{style:{fontSize:'1rem',fontWeight:700}},ac+'/'+tt.length)),h('div',{style:{height:12,background:'rgba(255,255,255,.08)',borderRadius:6,overflow:'hidden'}},h('div',{style:{height:'100%',width:(prog*100)+'%',background:`linear-gradient(90deg,${pk.c},#FFD700)`,borderRadius:6,transition:'width .4s'}}))),
           h(StrkBar,{kid:aK}),
           ...CO.map(cat=>{const ct=gr[cat];if(!ct||!ct.length)return null;return h(KidSec,{key:cat,cat,label:CATS[cat],list:ct})})));
