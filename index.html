@@ -162,7 +162,7 @@ const DK=[{id:"kid1",name:"Max",av:"charizard"},{id:"kid2",name:"Mars",av:"pikac
 // ── Helpers ──────────────────────────────────────────────────
 function estNow(){return new Date(new Date().toLocaleString('en-US',{timeZone:'America/New_York'}))}
 function estStr(d){return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0')}
-function tdy(){const n=estNow();if(n.getHours()<9){const y=new Date(n);y.setDate(y.getDate()-1);return estStr(y)}return estStr(n)}
+function tdy(){return estStr(estNow())}
 function dateAdd(ds,n){const d=new Date(ds+"T12:00:00");d.setDate(d.getDate()+n);return estStr(d)}
 function dateOff(n){return dateAdd(tdy(),-n)}
 function dcFor(ds){return DC[new Date(ds+"T12:00:00").getDay()]}
