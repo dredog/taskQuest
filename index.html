@@ -32,7 +32,7 @@ window.onerror=function(msg,src,line,col,err){
   return true;
 };
 const{useState,useEffect,createElement:h}=React;
-const SK="tq-v8",PIN="1234";
+const SK="tq-v8",PIN="1963";
 // Hybrid storage: window.storage (Claude preview) -> localStorage -> memory
 const Stor={
   async get(k){
@@ -97,25 +97,18 @@ const PIANO_SCH={"2026-05-23":{at:"09:00",rb:"08:40"},"2026-05-30":{at:"09:00",r
 const SC_CAMP={"2026-06-09":{at:"09:00",rb:"08:40"},"2026-06-10":{at:"09:00",rb:"08:40"},"2026-06-11":{at:"09:00",rb:"08:40"}};
 
 const DT=[
-  {id:"breakfast",label:"Breakfast finished",       pts:1,cat:"morning",icon:"🥣",rt:true},
-  {id:"brush_am", label:"Brush teeth",              pts:1,cat:"morning",icon:"🪥",rt:true},
-  {id:"bags",     label:"Backpack, lunch & water",  pts:1,cat:"morning",icon:"🎒",rt:true},
-  {id:"ready",    label:"Shoes on — ready to go!",  pts:5,cat:"morning",icon:"🚗",rt:true},
+  {id:"morning_routine",label:"Morning routine done",pts:3,cat:"morning",icon:"🌅",rt:true},
   {id:"fish",     label:"Feed the fish",            pts:3,cat:"daily",icon:"🐟",rt:false,days:[...AD],forKid:"kid1"},
-  {id:"dinner",   label:"Finish dinner",            pts:1,cat:"daily",icon:"🍽️",rt:false,days:[...AD]},
-  {id:"cleanup",  label:"Clean up after dinner",    pts:2,cat:"daily",icon:"🧹",rt:false,days:[...AD]},
-  {id:"reading",  label:"Read for 20 minutes",      pts:2,cat:"daily",icon:"📖",rt:false,days:[...AD]},
-  {id:"piano",    label:"Piano practice (20+ min)", pts:2,cat:"daily",icon:"🎹",rt:false,days:[...AD],forKid:"kid2"},
-  {id:"exercise", label:"Strength exercises",       pts:3,cat:"daily",icon:"💪",rt:false,days:[...AD]},
-  {id:"shower",   label:"Showered by 9:25pm",       pts:2,cat:"daily",icon:"🛁",rt:true, days:[...AD]},
-  {id:"brush_pm", label:"Brush teeth by 9:28pm",   pts:1,cat:"daily",icon:"🌙",rt:true, days:[...AD]},
-  {id:"skincare", label:"Skin care & in bed 9:30",  pts:2,cat:"daily",icon:"🌿",rt:false,days:[...AD]},
+  {id:"reading",  label:"Read for 20 minutes",      pts:5,cat:"daily",icon:"📖",rt:false,days:[...AD]},
+  {id:"piano",    label:"Piano practice (20+ min)", pts:3,cat:"daily",icon:"🎹",rt:false,days:[...AD],forKid:"kid2"},
+  {id:"exercise", label:"Exercises: 3×10 pushups, 3×15 situps, 2×25 crabwalk, 2×10 side leg raises",       pts:5,cat:"daily",icon:"💪",rt:false,days:[...AD]},
+  {id:"evening_routine",label:"Evening routine done",pts:4,cat:"daily",icon:"🌙",rt:true,days:[...AD]},
   {id:"fold",       label:"Fold clothes",     pts:10,cat:"weekly",icon:"👔",rt:false,days:[...AD]},
   {id:"bathroom",   label:"Clean bathroom",   pts:10,cat:"weekly",icon:"🚿",rt:false,days:[...AD]},
   {id:"dishwasher", label:"Empty dishwasher", pts:4,cat:"weekly",icon:"🍽️",rt:false,days:[...AD]},
   {id:"room",       label:"Clean room",       pts:5,cat:"weekly",icon:"🛏️",rt:false,days:[...AD]},
-  {id:"hall_bath",label:"Clean hall bathroom",            pts:15,cat:"bonus",icon:"🚽",rt:false,days:[...AD]},
-  {id:"shoe_org", label:"Organize shoe closet & pantry",  pts:12,cat:"bonus",icon:"👟",rt:false,days:[...AD]},
+  {id:"hall_bath",label:"Clean hall bathroom",            pts:10,cat:"bonus",icon:"🚽",rt:false,days:[...AD]},
+  {id:"shoe_org", label:"Organize shoe closet & pantry",  pts:10,cat:"bonus",icon:"👟",rt:false,days:[...AD]},
   {id:"dining",   label:"Clean dining table & counters",  pts:12,cat:"bonus",icon:"🍽️",rt:false,days:[...AD]},
   {id:"lawn",     label:"Mow the lawn",                   pts:30,cat:"bonus",icon:"🌿",rt:false,days:[...AD]},
   {id:"car",      label:"Clean the car",                  pts:20,cat:"bonus",icon:"🚗",rt:false,days:[...AD]},
@@ -142,7 +135,7 @@ const DR=[
   {id:"r_movie",   label:"Pick family movie",            cost:15, icon:"🎬"},
   {id:"r_dessert", label:"Dessert of choice",            cost:14, icon:"🍰"},
   {id:"r_ice",     label:"Ice cream stop",               cost:28, icon:"🍦"},
-  {id:"r_screen",  label:"30 min screen time",           cost:30, icon:"📱"},
+  {id:"r_screen",  label:"30 min screen time",           cost:50, icon:"📱"},
   {id:"r_foldme",  label:"Dad folds your laundry",       cost:10, icon:"👕"},
   {id:"r_bathme",  label:"Dad cleans your bathroom",     cost:16, icon:"🧽"},
   {id:"r_1dollar", label:"$1 cash",                      cost:55, icon:"🪙"},
@@ -183,14 +176,7 @@ function getDayLabel(ds,cDeps,camps){
 }
 function getMilestones(dep){
   if(!dep)return[];
-  const[hh,mm]=dep.split(':').map(Number);const tM=hh*60+mm;
-  const m2t=m=>{const t=((m%1440)+1440)%1440;return String(Math.floor(t/60)).padStart(2,'0')+':'+String(t%60).padStart(2,'0')};
-  return[
-    {taskId:"breakfast",label:"Breakfast done",    icon:"🥣",due:m2t(tM-10)},
-    {taskId:"brush_am", label:"Brush teeth",       icon:"🪥",due:m2t(tM-5)},
-    {taskId:"bags",     label:"Bags & water ready",icon:"🎒",due:m2t(tM-2)},
-    {taskId:"ready",    label:"Ready to go!",      icon:"🚗",due:m2t(tM)},
-  ];
+  return[{taskId:"morning_routine",label:"Morning routine done",icon:"🌅",due:dep}];
 }
 function fmtT(t){if(!t)return"";const[hh,mm]=t.split(":");const hr=parseInt(hh);return(hr===0?12:hr>12?hr-12:hr)+":"+(mm||"00")+(hr>=12?" PM":" AM")}
 function fullDate(ds){const d=new Date(ds+"T12:00:00");return DLFULL[d.getDay()]+', '+MFULL[d.getMonth()]+' '+d.getDate()}
@@ -199,8 +185,9 @@ function fmtDateTiny(ds){const d=new Date(ds+"T12:00:00");const di=DORD.indexOf(
 
 function tasksForDate(tasks,ds,kid,cDeps,camps){
   const dc=dcFor(ds);const dep=getDepTime(ds,cDeps,camps);
+  const hasAct=tasks.some(t=>t.cat==="activity"&&t.sched&&t.sched[ds]&&(!kid||!t.forKid||t.forKid==="both"||t.forKid===kid));
   return tasks.filter(t=>{
-    if(t.cat==="morning"){if(!dep)return false}
+    if(t.cat==="morning"){if(!dep&&!hasAct)return false}
     else if(t.sched!==undefined){if(!t.sched[ds])return false}
     else if(t.cat!=="bonus"){if(!t.days||!t.days.includes(dc))return false}
     if(kid&&t.forKid&&t.forKid!=="both"&&t.forKid!==kid)return false;
@@ -267,6 +254,11 @@ function App(){
   const[cDeps,setCDeps]=useState({});
   const[camps,setCamps]=useState(CAMP_DEF);
   const[weekBonus,setWeekBonus]=useState({});
+  const[choreDue,setChoreDue]=useState({kid1:{},kid2:{}});
+  const[throwLog,setThrowLog]=useState([]);
+  const[tDrills,setTDrills]=useState({});
+  const[tVelo,setTVelo]=useState('');
+  const[showHist,setShowHist]=useState(false);
   const[appReady,setAppReady]=useState(false);
   const[showBonus,setShowBonus]=useState(false);
   const[showCU,setShowCU]=useState(false);
@@ -289,18 +281,21 @@ function App(){
         if(S0.kids)setKids(S0.kids);
         if(S0.tasks){
           let m=[...S0.tasks];
-          if(!m.find(t=>t.cat==="morning")){
-            const OLD=["breakfast","dishes","brush_am","dressed","water","shoes_jk","door","shoes_bags"];
-            m=m.filter(t=>!OLD.includes(t.id));
-            m.unshift(...DT.filter(t=>t.cat==="morning"));
-          }
-          ["piano","exercise","shower","brush_pm","skincare","hall_bath","shoe_org","dining","lawn","car","laps",
+          // v9 migration: remove old individual morning/evening tasks, add combined ones
+          const OLD_MORNING=["breakfast","brush_am","bags","ready","dishes","dressed","water","shoes_jk","door","shoes_bags"];
+          const OLD_EVENING=["shower","brush_pm","skincare"];
+          const OLD_REMOVED=["dinner","cleanup"];
+          m=m.filter(t=>!OLD_MORNING.includes(t.id)&&!OLD_EVENING.includes(t.id)&&!OLD_REMOVED.includes(t.id));
+          if(!m.find(t=>t.id==="morning_routine"))m.unshift({id:"morning_routine",label:"Morning routine done",pts:5,cat:"morning",icon:"🌅",rt:true});
+          if(!m.find(t=>t.id==="evening_routine"))m.splice(m.findIndex(t=>t.cat==="daily"&&!["fish","reading","piano","exercise"].includes(t.id))||m.length,0,{id:"evening_routine",label:"Evening routine done",pts:4,cat:"daily",icon:"🌙",rt:true,days:[...AD]});
+          // Ensure updated pts and labels for reading/exercise/piano/morning
+          m=m.map(t=>t.id==="reading"?{...t,pts:5}:t.id==="exercise"?{...t,pts:5,label:"Exercises: 3×10 pushups, 3×15 situps, 2×25 crabwalk, 2×10 side leg raises"}:t.id==="piano"?{...t,pts:3}:t.id==="morning_routine"?{...t,pts:3}:t);
+          ["piano","exercise","hall_bath","shoe_org","dining","lawn","car","laps",
            "bb_prac_mon","bb_prac_wed","bb_prac_fri","swim_thu","swim_sat","piano_les","sc_camp"].forEach(id=>{
             if(!m.find(t=>t.id===id)){const dt=DT.find(t=>t.id===id);if(dt)m.push(dt)}
           });
           m=m.map(t=>t.id==="laundry"&&t.cat==="weekly"?{...t,cat:"bonus"}:t);
           m=m.map(t=>t.cat==="weekly"&&!t.days?.length?{...t,days:[...AD],sched:undefined}:t);
-          m=m.filter(t=>!["shoes_bags","dishes","dressed","water","shoes_jk"].includes(t.id));
           setTasks(m);
         }
         if(S0.rews){
@@ -308,6 +303,8 @@ function App(){
           ["r_treat","r_screen","r_wk_bonus","r_prize_sm","r_prize_lg"].forEach(id=>{
             if(!r.find(x=>x.id===id)){const dr=DR.find(x=>x.id===id);if(dr)r.push(dr)}
           });
+          // v9: update screen time cost
+          r=r.map(x=>x.id==="r_screen"?{...x,cost:50}:x);
           setRews(r);
         }
         if(S0.comp)setComp(S0.comp);
@@ -321,6 +318,8 @@ function App(){
         if(S0.cDeps)setCDeps(S0.cDeps);
         if(S0.camps)setCamps(S0.camps);
         if(S0.weekBonus)setWeekBonus(S0.weekBonus);
+        if(S0.choreDue)setChoreDue(S0.choreDue);
+        if(S0.throwLog)setThrowLog(S0.throwLog);
       }
       setAppReady(true);
     }).catch(function(e){console.error('Storage load error:',e);setAppReady(true);});
@@ -328,8 +327,8 @@ function App(){
   // Save on any state change (after load)
   useEffect(()=>{
     if(!appReady)return;
-    Stor.set(SK,{kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub,cDeps,camps,weekBonus});
-  },[appReady,kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub,cDeps,camps,weekBonus]);
+    Stor.set(SK,{kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub,cDeps,camps,weekBonus,choreDue,throwLog});
+  },[appReady,kids,tasks,rews,pens,comp,appr,pts,pend,rdm,rwP,pLog,secSub,cDeps,camps,weekBonus,choreDue,throwLog]);
 
   const dy=tdy(),tmrw=dateAdd(dy,1),cuDay=dateAdd(dy,-1);
   const showCatchUp=now.getHours()>=9;
@@ -383,6 +382,8 @@ function App(){
     setPend(p=>p.filter(x=>!(x.k===kid&&tids.includes(x.t)&&x.d===date)));
     if(tot!==0)boom(tot);
     if(tids.some(t=>WK_IDS.includes(t)))chkWkBonus(nA,kid);
+    // Reset chore due dates for tracked chores
+    TRACKED_CHORES.forEach(cid=>{if(tids.includes(cid))setChoreDue(p=>({...p,[kid]:{...(p[kid]||{}),[cid]:dateAdd(date||dy,CHORE_INTERVAL)}}))});
   };
 
   const doRej=(kid,tid,date)=>{
@@ -394,7 +395,7 @@ function App(){
   };
 
   const doPen=(kid,pid)=>{const pe=pens.find(p=>p.id===pid);if(!pe)return;setPts(p=>({...p,[kid]:Math.max(0,(p[kid]||0)+pe.pts)}));setPLog(p=>[...p,{k:kid,p:pid,d:dy,ts:Date.now()}]);boom(pe.pts)};
-  const reqRew=rwId=>{const rw=rews.find(r=>r.id===rwId);if(!rw||rw.special||pts[aK]<rw.cost)return;if(rwP.some(r=>r.k===aK&&r.r===rwId&&!r.done))return;setRwP(p=>[...p,{k:aK,r:rwId,d:dy,ts:Date.now()}])};
+  const reqRew=rwId=>{const rw=rews.find(r=>r.id===rwId);if(!rw||rw.special||pts[aK]<rw.cost)return;if(anyOverdue(aK))return;if(rwP.some(r=>r.k===aK&&r.r===rwId&&!r.done))return;setRwP(p=>[...p,{k:aK,r:rwId,d:dy,ts:Date.now()}])};
   const apprRew=idx=>{const r=rwP[idx];if(!r)return;const rw=rews.find(x=>x.id===r.r);if(!rw)return;if(!r.auto&&pts[r.k]<rw.cost)return;if(!r.auto)setPts(p=>({...p,[r.k]:p[r.k]-rw.cost}));setRdm(p=>[...p,{...r,done:true}]);setRwP(p=>p.filter((_,i)=>i!==idx));setCf(true);setTimeout(()=>setCf(false),2200)};
   const rejRew=idx=>setRwP(p=>p.filter((_,i)=>i!==idx));
 
@@ -417,6 +418,14 @@ function App(){
     inp:{background:'rgba(255,255,255,.1)',border:'1px solid rgba(255,255,255,.2)',borderRadius:10,padding:'12px 14px',color:'#fff',fontSize:'1.05rem',width:'100%',boxSizing:'border-box',outline:'none'},
     rr:ok=>({display:'flex',alignItems:'center',gap:10,padding:'13px 14px',marginBottom:7,borderRadius:12,background:ok?'rgba(255,255,255,.06)':'rgba(255,255,255,.02)',border:`1px solid ${ok?'rgba(255,215,0,.25)':'rgba(255,255,255,.04)'}`,opacity:ok?1:.45}),
   };
+
+  // ── Chore due-date helpers ────────────────────────────────
+  const TRACKED_CHORES=["room","bathroom"];
+  const CHORE_INTERVAL=14; // days
+  const choreDueDate=(kid,cid)=>(choreDue[kid]||{})[cid]||null;
+  const isOverdue=(kid,cid)=>{const dd=choreDueDate(kid,cid);return dd&&dd<dy};
+  const anyOverdue=kid=>TRACKED_CHORES.some(c=>isOverdue(kid,c));
+  const choreLabel=cid=>{const dd=choreDueDate(aK,cid);if(!dd)return'';if(dd<dy)return'⚠️ OVERDUE';return'Due '+fmtDateShort(dd)};
 
   // ── Inner components (have closure access to state) ────────
 
@@ -501,7 +510,8 @@ function App(){
             h('span',{style:{fontSize:'1rem',fontWeight:500,textDecoration:a?'line-through':'none',opacity:a?.6:1,display:'block'}},excused?t.label+' — excused':t.label),
             excused?h('span',{style:{fontSize:'.78rem',color:'rgba(99,102,241,.7)'}},'2+ hr practice · streak protected'):
             mInfo?h('span',{style:{fontSize:'.8rem',color:'rgba(255,255,255,.4)'}},'Due by '+fmtT(mInfo.due)):
-            hasTime?h('span',{style:{fontSize:'.8rem',color:'rgba(255,255,255,.4)'}},fmtT(atm.at)+(atm.rb?' · Ready by '+fmtT(atm.rb):'')):null),
+            hasTime?h('span',{style:{fontSize:'.8rem',color:'rgba(255,255,255,.4)'}},fmtT(atm.at)+(atm.rb?' · Ready by '+fmtT(atm.rb):'')):
+            TRACKED_CHORES.includes(t.id)&&choreLabel(t.id)?h('span',{style:{fontSize:'.8rem',color:isOverdue(aK,t.id)?'#EF4444':'rgba(255,255,255,.4)',fontWeight:isOverdue(aK,t.id)?700:400}},choreLabel(t.id)):null),
           !excused&&tp>0&&h('span',{style:Z.pb},'+'+tp));
       }),
       !allOk&&chkd>0&&h('button',{onClick:()=>submitSec(cat,date),style:{...Z.bt('#22C55E'),marginTop:4,fontSize:'1rem'}},'✋ Submit for Dad ('+chkd+')'),
@@ -601,8 +611,9 @@ function App(){
     const tabs=h('div',{style:{display:'flex',gap:2,padding:'6px 8px',background:'rgba(0,0,0,.2)'}},
       h('button',{style:Z.tb(kidTab==="tasks"),onClick:()=>setKidTab("tasks")},'✅ Tasks'),
       h('button',{style:Z.tb(kidTab==="shop"),onClick:()=>setKidTab("shop")},'🎁 Shop'),
-      h('button',{style:Z.tb(kidTab==="stats"),onClick:()=>setKidTab("stats")},'📊 Stats'),
-      h('button',{style:Z.tb(kidTab==="av"),onClick:()=>setKidTab("av")},'🎮 Pokémon'));
+      aK==="kid1"&&h('button',{style:Z.tb(kidTab==="throw"),onClick:()=>{setKidTab("throw");const te=throwLog.find(e=>e.date===dy);setTDrills(te?.drills||{});setTVelo(te?.velo||'')}},'⚾'),
+      h('button',{style:Z.tb(kidTab==="stats"),onClick:()=>setKidTab("stats")},'📊'),
+      h('button',{style:Z.tb(kidTab==="av"),onClick:()=>setKidTab("av")},'🎮'));
 
     if(kidTab==="tasks"){
       const tt=tasksFor(dy,aK);
@@ -634,13 +645,20 @@ function App(){
     }
 
     if(kidTab==="shop"){
+      const blocked=anyOverdue(aK);
       return h('div',{},h(Conf,{on:cf}),h(PopEl,pop),hdr,tabs,
         h('div',{style:{padding:'12px 14px 80px'}},
+          blocked&&h('div',{style:{...Z.cd,background:'rgba(239,68,68,.15)',border:'1px solid rgba(239,68,68,.3)',marginBottom:14,textAlign:'center'}},
+            h('div',{style:{fontSize:'1.3rem',marginBottom:4}},'🚫'),
+            h('div',{style:{fontWeight:700,fontSize:'1rem',color:'#EF4444',marginBottom:4}},'Rewards Locked!'),
+            h('div',{style:{fontSize:'.88rem',color:'rgba(255,255,255,.5)'}},'You have overdue chores. Clean your '
+              +TRACKED_CHORES.filter(c=>isOverdue(aK,c)).map(c=>c==='room'?'room':'bathroom').join(' & ')
+              +' to unlock rewards.')),
           h('div',{style:{...Z.cd,marginBottom:14,display:'flex',alignItems:'center',gap:10}},
             h('span',{style:{fontSize:'1.3rem'}},'💰'),
             h('span',{style:{fontWeight:700,fontSize:'1.2rem',color:'#FFD700'}},(pts[aK]||0)+' points to spend')),
           ...sortRew.filter(rw=>!rw.special).map(rw=>{
-            const ok=pts[aK]>=rw.cost,pd=rwP.some(r=>r.k===aK&&r.r===rw.id&&!r.done);
+            const ok=pts[aK]>=rw.cost&&!blocked,pd=rwP.some(r=>r.k===aK&&r.r===rw.id&&!r.done);
             return h('div',{key:rw.id,style:Z.rr(ok)},
               h('span',{style:{fontSize:'1.3rem'}},rw.icon),
               h('div',{style:{flex:1}},
@@ -649,6 +667,74 @@ function App(){
               pd?h('div',{style:{color:'#FBB724',fontSize:'.85rem'}},'⏳ pending'):
               ok&&h('button',{onClick:()=>reqRew(rw.id),style:{background:'rgba(255,215,0,.15)',border:'1px solid rgba(255,215,0,.3)',color:'#FFD700',padding:'8px 14px',borderRadius:10,cursor:'pointer',fontSize:'.9rem',fontWeight:600}},'Claim'));
           })));
+    }
+
+    if(kidTab==="throw"&&aK==="kid1"){
+      const DRILLS=[
+        {id:"nostep25",label:"No-step · 25 ft",total:50,icon:"🎯"},
+        {id:"onestep35",label:"One-step · 35 ft",total:40,icon:"💨"},
+        {id:"pitch46",label:"Full pitch · 46 ft",total:30,icon:"⚾"},
+      ];
+      const todayEntry=throwLog.find(e=>e.date===dy);
+
+      const saveThrow=()=>{
+        const entry={date:dy,drills:{...tDrills},velo:tVelo||null};
+        setThrowLog(p=>{const n=p.filter(e=>e.date!==dy);n.push(entry);n.sort((a,b)=>a.date.localeCompare(b.date));return n});
+      };
+      const setDrillVal=(did,val)=>{const v=val===''?null:Math.max(0,parseInt(val)||0);setTDrills(p=>({...p,[did]:v}))};
+
+      const sorted=[...throwLog].sort((a,b)=>b.date.localeCompare(a.date));
+      const pct=(made,tot)=>made!=null?Math.round(made/tot*100)+'%':'—';
+
+      return h('div',{},hdr,tabs,
+        h('div',{style:{padding:'12px 14px 80px'}},
+          h('h3',{style:{fontSize:'1.1rem',fontWeight:700,marginBottom:12}},'⚾ Throwing Tracker'),
+
+          // Input section
+          h('div',{style:Z.cd},
+            h('div',{style:{fontWeight:600,fontSize:'.95rem',marginBottom:10,color:'rgba(255,255,255,.6)'}},fullDate(dy)),
+            ...DRILLS.map(d=>{
+              const val=tDrills[d.id];
+              return h('div',{key:d.id,style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+                h('span',{style:{fontSize:'1.1rem'}},d.icon),
+                h('div',{style:{flex:1}},
+                  h('div',{style:{fontSize:'.92rem',fontWeight:500}},d.label),
+                  h('div',{style:{fontSize:'.78rem',color:'rgba(255,255,255,.35)'}},d.total+' throws')),
+                h('input',{type:'number',inputMode:'numeric',placeholder:'—',value:val!=null?val:'',
+                  onChange:e=>setDrillVal(d.id,e.target.value),
+                  style:{...Z.inp,width:64,textAlign:'center',padding:'8px 4px',fontSize:'1.1rem',fontWeight:700}}),
+                h('span',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)',width:28}},'/'+d.total))}),
+            h('div',{style:{display:'flex',alignItems:'center',gap:8,marginBottom:10}},
+              h('span',{style:{fontSize:'1.1rem'}},'🔥'),
+              h('div',{style:{flex:1}},h('div',{style:{fontSize:'.92rem',fontWeight:500}},'Velocity (mph)'),h('div',{style:{fontSize:'.78rem',color:'rgba(255,255,255,.35)'}},'Mound days only')),
+              h('input',{type:'number',inputMode:'numeric',placeholder:'—',value:tVelo||'',
+                onChange:e=>setTVelo(e.target.value===''?'':parseInt(e.target.value)||''),
+                style:{...Z.inp,width:64,textAlign:'center',padding:'8px 4px',fontSize:'1.1rem',fontWeight:700}}),
+              h('span',{style:{fontSize:'.82rem',color:'rgba(255,255,255,.35)',width:28}},'mph')),
+            h('button',{onClick:saveThrow,style:{...Z.bt('#22C55E'),fontSize:'1rem',marginTop:4}},'💾 Save Session')),
+
+          // History toggle
+          h('button',{onClick:()=>setShowHist(!showHist),style:{background:'rgba(255,255,255,.06)',border:'1px solid rgba(255,255,255,.1)',color:'#fff',padding:'10px',borderRadius:10,width:'100%',cursor:'pointer',fontSize:'.95rem',fontWeight:600,marginTop:14}},
+            showHist?'▲ Hide History':'▼ Show History ('+throwLog.length+' sessions)'),
+
+          // History table
+          showHist&&sorted.length>0&&h('div',{style:{marginTop:12,overflowX:'auto'}},
+            h('table',{style:{width:'100%',borderCollapse:'collapse',fontSize:'.82rem'}},
+              h('thead',{},h('tr',{style:{borderBottom:'1px solid rgba(255,255,255,.15)'}},
+                h('th',{style:{textAlign:'left',padding:'6px 4px',color:'rgba(255,255,255,.5)',fontWeight:600}},'Date'),
+                ...DRILLS.map(d=>h('th',{key:d.id,style:{textAlign:'center',padding:'6px 2px',color:'rgba(255,255,255,.5)',fontWeight:600}},d.label.split('·')[0].trim())),
+                h('th',{style:{textAlign:'center',padding:'6px 2px',color:'rgba(255,255,255,.5)',fontWeight:600}},'Velo'))),
+              h('tbody',{},...sorted.map(e=>{
+                const dt=new Date(e.date+"T12:00:00");
+                const dayLbl=DLF[DORD.indexOf(DC[dt.getDay()])]+' '+dt.toLocaleDateString('en-US',{month:'short',day:'numeric'});
+                return h('tr',{key:e.date,style:{borderBottom:'1px solid rgba(255,255,255,.06)'}},
+                  h('td',{style:{padding:'6px 4px',color:e.date===dy?'#FFD700':'rgba(255,255,255,.7)',fontWeight:e.date===dy?700:400}},dayLbl),
+                  ...DRILLS.map(d=>{
+                    const v=e.drills?.[d.id];const p=v!=null?Math.round(v/d.total*100):null;
+                    return h('td',{key:d.id,style:{textAlign:'center',padding:'6px 2px',color:p!=null?(p>=70?'#22C55E':p>=50?'#FBB724':'#EF4444'):'rgba(255,255,255,.2)',fontWeight:600}},
+                      v!=null?v+'/'+d.total:'—')}),
+                  h('td',{style:{textAlign:'center',padding:'6px 2px',color:e.velo?'#93C5FD':'rgba(255,255,255,.2)',fontWeight:600}},e.velo?e.velo+'':'—'))}))))
+        ));
     }
 
     if(kidTab==="stats"){
